@@ -1,17 +1,139 @@
 version: '3.8'
+
 services:
+  # 1. The Master Database
   postgres:
     image: postgres:15-alpine
     container_name: campus-bus-postgres
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
-      # We will use an init script to create the multiple databases
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Security & Login
+  auth-service:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: auth-service
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/auth_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    command: mvn -f services/auth-service/pom.xml spring-boot:run
+
+  # 3. Bus Routes
+  route-service:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: route-service
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/route_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    command: mvn -f services/route-service/pom.xml spring-boot:run
+
+  # 4. Bus Stops
+  stop-service:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: stop-service
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/stop_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    command: mvn -f services/stop-service/pom.xml spring-boot:run
+
+  # 5. Bus Inventory
+  bus-service:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: bus-service
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/bus_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    command: mvn -f services/bus-service/pom.xml spring-boot:run
+
+  # 6. Active Trips
+  trip-service:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: trip-service
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/trip_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+    command: mvn -f services/trip-service/pom.xml spring-boot:run
+
+  # 7. Live GPS Tracking
+  location-service:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: location-service
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-cache:/root/.m2
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/location_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SERVICES_TRIP_SERVICE_URL=http://trip-service:8085
+    command: mvn -f services/location-service/pom.xml spring-boot:run
 
 volumes:
   postgres-data:
+  maven-cache:
