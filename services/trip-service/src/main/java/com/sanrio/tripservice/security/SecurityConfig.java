@@ -25,6 +25,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Swagger docs — always public
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/error").permitAll()
+                        
+                        .requestMatchers(HttpMethod.GET, "/api/trips/*").permitAll()
                         // Only drivers can start or end a trip
                         .requestMatchers(HttpMethod.POST, "/api/trips/start").hasRole("DRIVER")
                         .requestMatchers(HttpMethod.PUT, "/api/trips/*/end").hasRole("DRIVER")
